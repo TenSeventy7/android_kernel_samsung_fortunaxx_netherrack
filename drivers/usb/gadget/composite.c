@@ -130,16 +130,11 @@ int config_ep_by_speed(struct usb_gadget *g,
 
 ep_found:
 	/* commit results */
-	_ep->maxpacket = usb_endpoint_maxp(chosen_desc) & 0x7ff;
+	_ep->maxpacket = usb_endpoint_maxp(chosen_desc);
 	_ep->desc = chosen_desc;
 	_ep->comp_desc = NULL;
 	_ep->maxburst = 0;
-	_ep->mult = 1;
-
-	if (g->speed == USB_SPEED_HIGH && (usb_endpoint_xfer_isoc(_ep->desc) ||
-				usb_endpoint_xfer_int(_ep->desc)))
-		_ep->mult = ((usb_endpoint_maxp(_ep->desc) & 0x1800) >> 11) + 1;
-
+	_ep->mult = 0;
 	if (!want_comp_desc)
 		return 0;
 
@@ -156,7 +151,7 @@ ep_found:
 		switch (usb_endpoint_type(_ep->desc)) {
 		case USB_ENDPOINT_XFER_ISOC:
 			/* mult: bits 1:0 of bmAttributes */
-			_ep->mult = (comp_desc->bmAttributes & 0x3) + 1;
+			_ep->mult = comp_desc->bmAttributes & 0x3;
 		case USB_ENDPOINT_XFER_BULK:
 		case USB_ENDPOINT_XFER_INT:
 			_ep->maxburst = comp_desc->bMaxBurst + 1;
@@ -378,7 +373,9 @@ static int usb_func_wakeup_int(struct usb_function *func,
 {
 	int ret;
 	int interface_id;
+	unsigned long flags;
 	struct usb_gadget *gadget;
+	struct usb_composite_dev *cdev;
 
 	pr_debug("%s - %s function wakeup, use pending: %u\n",
 		__func__, func->name ? func->name : "", use_pending_flag);
@@ -397,8 +394,12 @@ static int usb_func_wakeup_int(struct usb_function *func,
 		return -ENOTSUPP;
 	}
 
+	cdev = get_gadget_data(gadget);
+	spin_lock_irqsave(&cdev->lock, flags);
+
 	if (use_pending_flag && !func->func_wakeup_pending) {
 		pr_debug("Pending flag is cleared - Function wakeup is cancelled.\n");
+		spin_unlock_irqrestore(&cdev->lock, flags);
 		return 0;
 	}
 
@@ -408,6 +409,7 @@ static int usb_func_wakeup_int(struct usb_function *func,
 			"Function %s - Unknown interface id. Canceling USB request. ret=%d\n",
 			func->name ? func->name : "", ret);
 
+		spin_unlock_irqrestore(&cdev->lock, flags);
 		return ret;
 	}
 
@@ -421,31 +423,30 @@ static int usb_func_wakeup_int(struct usb_function *func,
 			func->func_wakeup_pending = true;
 	}
 
+	spin_unlock_irqrestore(&cdev->lock, flags);
+
 	return ret;
 }
 
 int usb_func_wakeup(struct usb_function *func)
 {
 	int ret;
-	unsigned long flags;
 
 	pr_debug("%s function wakeup\n",
 		func->name ? func->name : "");
 
-	spin_lock_irqsave(&func->config->cdev->lock, flags);
 	ret = usb_func_wakeup_int(func, false);
 	if (ret == -EAGAIN) {
 		DBG(func->config->cdev,
 			"Function wakeup for %s could not complete due to suspend state. Delayed until after bus resume.\n",
 			func->name ? func->name : "");
 		ret = 0;
-	} else if (ret < 0 && ret != -ENOTSUPP) {
+	} else if (ret < 0) {
 		ERROR(func->config->cdev,
 			"Failed to wake function %s from suspend state. ret=%d. Canceling USB request.\n",
 			func->name ? func->name : "", ret);
 	}
 
-	spin_unlock_irqrestore(&func->config->cdev->lock, flags);
 	return ret;
 }
 
@@ -666,7 +667,7 @@ static int bos_desc(struct usb_composite_dev *cdev)
 	usb_ext->bLength = USB_DT_USB_EXT_CAP_SIZE;
 	usb_ext->bDescriptorType = USB_DT_DEVICE_CAPABILITY;
 	usb_ext->bDevCapabilityType = USB_CAP_TYPE_EXT;
-	usb_ext->bmAttributes = cpu_to_le32(USB_LPM_SUPPORT | USB_BESL_SUPPORT);
+	usb_ext->bmAttributes = cpu_to_le32(USB_LPM_SUPPORT);
 
 	if (gadget_is_superspeed(cdev->gadget)) {
 		/*
@@ -816,12 +817,6 @@ static int set_config(struct usb_composite_dev *cdev,
 		 */
 		switch (gadget->speed) {
 		case USB_SPEED_SUPER:
-			if (!f->ss_descriptors) {
-				pr_err("%s(): No SS desc for function:%s\n",
-							__func__, f->name);
-				usb_gadget_set_state(gadget, USB_STATE_ADDRESS);
-				return -EINVAL;
-			}
 			descriptors = f->ss_descriptors;
 			break;
 		case USB_SPEED_HIGH:
@@ -1566,7 +1561,9 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 		value = min(w_length, (u16) 1);
 		break;
 
-	/* function drivers must handle get/set altsetting */
+	/* function drivers must handle get/set altsetting; if there's
+	 * no get() method, we know only altsetting zero works.
+	 */
 	case USB_REQ_SET_INTERFACE:
 		if (ctrl->bRequestType != USB_RECIP_INTERFACE)
 			goto unknown;
@@ -1575,13 +1572,7 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 		f = cdev->config->interface[intf];
 		if (!f)
 			break;
-
-		/*
-		 * If there's no get_alt() method, we know only altsetting zero
-		 * works. There is no need to check if set_alt() is not NULL
-		 * as we check this in usb_add_function().
-		 */
-		if (w_value && !f->get_alt)
+		if (w_value && !f->set_alt)
 			break;
 		/*
 		 * We put interfaces in default settings (alt 0)
@@ -2000,7 +1991,6 @@ composite_resume(struct usb_gadget *gadget)
 	struct usb_function		*f;
 	u8				maxpower;
 	int ret;
-	unsigned long			flags;
 
 	/* REVISIT:  should we have config level
 	 * suspend/resume callbacks?
@@ -2009,7 +1999,6 @@ composite_resume(struct usb_gadget *gadget)
 	if (cdev->driver->resume)
 		cdev->driver->resume(cdev);
 
-	spin_lock_irqsave(&cdev->lock, flags);
 	if (cdev->config) {
 		list_for_each_entry(f, &cdev->config->functions, list) {
 			ret = usb_func_wakeup_int(f, true);
@@ -2019,7 +2008,7 @@ composite_resume(struct usb_gadget *gadget)
 						"Function wakeup for %s could not complete due to suspend state.\n",
 						f->name ? f->name : "");
 					break;
-				} else if (ret != -ENOTSUPP) {
+				} else {
 					ERROR(f->config->cdev,
 						"Failed to wake function %s from suspend state. ret=%d. Canceling USB request.\n",
 						f->name ? f->name : "",
@@ -2037,7 +2026,6 @@ composite_resume(struct usb_gadget *gadget)
 			maxpower : CONFIG_USB_GADGET_VBUS_DRAW);
 	}
 
-	spin_unlock_irqrestore(&cdev->lock, flags);
 	cdev->suspended = 0;
 }
 

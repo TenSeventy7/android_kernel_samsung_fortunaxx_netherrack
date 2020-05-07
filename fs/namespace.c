@@ -541,7 +541,6 @@ int sb_prepare_remount_readonly(struct super_block *sb)
 
 static void free_vfsmnt(struct mount *mnt)
 {
-	kfree(mnt->mnt.data);
 	kfree(mnt->mnt_devname);
 	mnt_free_id(mnt);
 #ifdef CONFIG_SMP
@@ -785,21 +784,11 @@ vfs_kern_mount(struct file_system_type *type, int flags, const char *name, void 
 	if (!mnt)
 		return ERR_PTR(-ENOMEM);
 
-	mnt->mnt.data = NULL;
-	if (type->alloc_mnt_data) {
-		mnt->mnt.data = type->alloc_mnt_data();
-		if (!mnt->mnt.data) {
-			mnt_free_id(mnt);
-			free_vfsmnt(mnt);
-			return ERR_PTR(-ENOMEM);
-		}
-	}
 	if (flags & MS_KERNMOUNT)
 		mnt->mnt.mnt_flags = MNT_INTERNAL;
 
-	root = mount_fs(type, flags, name, &mnt->mnt, data);
+	root = mount_fs(type, flags, name, data);
 	if (IS_ERR(root)) {
-		kfree(mnt->mnt.data);
 		free_vfsmnt(mnt);
 		return ERR_CAST(root);
 	}
@@ -826,14 +815,6 @@ static struct mount *clone_mnt(struct mount *old, struct dentry *root,
 	if (!mnt)
 		return ERR_PTR(-ENOMEM);
 
-	if (sb->s_op->clone_mnt_data) {
-		mnt->mnt.data = sb->s_op->clone_mnt_data(old->mnt.data);
-		if (!mnt->mnt.data) {
-			err = -ENOMEM;
-			goto out_free;
-		}
-	}
-
 	if (flag & (CL_SLAVE | CL_PRIVATE | CL_SHARED_TO_SLAVE))
 		mnt->mnt_group_id = 0; /* not a peer of original */
 	else
@@ -845,23 +826,10 @@ static struct mount *clone_mnt(struct mount *old, struct dentry *root,
 			goto out_free;
 	}
 
-	mnt->mnt.mnt_flags = old->mnt.mnt_flags & ~(MNT_WRITE_HOLD|MNT_MARKED);
+	mnt->mnt.mnt_flags = old->mnt.mnt_flags & ~MNT_WRITE_HOLD;
 	/* Don't allow unprivileged users to change mount flags */
-	if (flag & CL_UNPRIVILEGED) {
-		mnt->mnt.mnt_flags |= MNT_LOCK_ATIME;
-
-		if (mnt->mnt.mnt_flags & MNT_READONLY)
-			mnt->mnt.mnt_flags |= MNT_LOCK_READONLY;
-
-		if (mnt->mnt.mnt_flags & MNT_NODEV)
-			mnt->mnt.mnt_flags |= MNT_LOCK_NODEV;
-
-		if (mnt->mnt.mnt_flags & MNT_NOSUID)
-			mnt->mnt.mnt_flags |= MNT_LOCK_NOSUID;
-
-		if (mnt->mnt.mnt_flags & MNT_NOEXEC)
-			mnt->mnt.mnt_flags |= MNT_LOCK_NOEXEC;
-	}
+	if ((flag & CL_UNPRIVILEGED) && (mnt->mnt.mnt_flags & MNT_READONLY))
+		mnt->mnt.mnt_flags |= MNT_LOCK_READONLY;
 
 	atomic_inc(&sb->s_active);
 	mnt->mnt.mnt_sb = sb;
@@ -897,7 +865,6 @@ static struct mount *clone_mnt(struct mount *old, struct dentry *root,
 	return mnt;
 
  out_free:
-	kfree(mnt->mnt.data);
 	free_vfsmnt(mnt);
 	return ERR_PTR(err);
 }
@@ -1593,14 +1560,16 @@ static int attach_recursive_mnt(struct mount *source_mnt,
 		err = invent_group_ids(source_mnt, true);
 		if (err)
 			goto out;
-		err = propagate_mnt(dest_mnt, dest_mp, source_mnt, &tree_list);
-		br_write_lock(&vfsmount_lock);
-		if (err)
-			goto out_cleanup_ids;
+	}
+	err = propagate_mnt(dest_mnt, dest_mp, source_mnt, &tree_list);
+	if (err)
+		goto out_cleanup_ids;
+
+	br_write_lock(&vfsmount_lock);
+
+	if (IS_MNT_SHARED(dest_mnt)) {
 		for (p = source_mnt; p; p = next_mnt(p, source_mnt))
 			set_mnt_shared(p);
-	} else {
-		br_write_lock(&vfsmount_lock);
 	}
 	if (parent_path) {
 		detach_mnt(source_mnt, parent_path);
@@ -1620,12 +1589,8 @@ static int attach_recursive_mnt(struct mount *source_mnt,
 	return 0;
 
  out_cleanup_ids:
-	while (!list_empty(&tree_list)) {
-		child = list_first_entry(&tree_list, struct mount, mnt_hash);
-		umount_tree(child, 0);
-	}
-	br_write_unlock(&vfsmount_lock);
-	cleanup_group_ids(source_mnt, NULL);
+	if (IS_MNT_SHARED(dest_mnt))
+		cleanup_group_ids(source_mnt, NULL);
  out:
 	return err;
 }
@@ -1799,6 +1764,9 @@ static int change_mount_flags(struct vfsmount *mnt, int ms_flags)
 	if (readonly_request == __mnt_is_readonly(mnt))
 		return 0;
 
+	if (mnt->mnt_flags & MNT_LOCK_READONLY)
+		return -EPERM;
+
 	if (readonly_request)
 		error = mnt_make_readonly(real_mount(mnt));
 	else
@@ -1824,33 +1792,6 @@ static int do_remount(struct path *path, int flags, int mnt_flags,
 	if (path->dentry != path->mnt->mnt_root)
 		return -EINVAL;
 
-	/* Don't allow changing of locked mnt flags.
-	 *
-	 * No locks need to be held here while testing the various
-	 * MNT_LOCK flags because those flags can never be cleared
-	 * once they are set.
-	 */
-	if ((mnt->mnt.mnt_flags & MNT_LOCK_READONLY) &&
-	    !(mnt_flags & MNT_READONLY)) {
-		return -EPERM;
-	}
-	if ((mnt->mnt.mnt_flags & MNT_LOCK_NODEV) &&
-	    !(mnt_flags & MNT_NODEV)) {
-		return -EPERM;
-	}
-	if ((mnt->mnt.mnt_flags & MNT_LOCK_NOSUID) &&
-	    !(mnt_flags & MNT_NOSUID)) {
-		return -EPERM;
-	}
-	if ((mnt->mnt.mnt_flags & MNT_LOCK_NOEXEC) &&
-	    !(mnt_flags & MNT_NOEXEC)) {
-		return -EPERM;
-	}
-	if ((mnt->mnt.mnt_flags & MNT_LOCK_ATIME) &&
-	    ((mnt->mnt.mnt_flags & MNT_ATIME_MASK) != (mnt_flags & MNT_ATIME_MASK))) {
-		return -EPERM;
-	}
-
 	err = security_sb_remount(sb, data);
 	if (err)
 		return err;
@@ -1860,17 +1801,11 @@ static int do_remount(struct path *path, int flags, int mnt_flags,
 		err = change_mount_flags(path->mnt, flags);
 	else if (!capable(CAP_SYS_ADMIN))
 		err = -EPERM;
-	else {
-		err = do_remount_sb2(path->mnt, sb, flags, data, 0);
-		namespace_lock();
-		br_write_lock(&vfsmount_lock);
-		propagate_remount(mnt);
-		br_write_unlock(&vfsmount_lock);
-		namespace_unlock();
-	}
+	else
+		err = do_remount_sb(sb, flags, data, 0);
 	if (!err) {
 		br_write_lock(&vfsmount_lock);
-		mnt_flags |= mnt->mnt.mnt_flags & ~MNT_USER_SETTABLE_MASK;
+		mnt_flags |= mnt->mnt.mnt_flags & MNT_PROPAGATION_MASK;
 		mnt->mnt.mnt_flags = mnt_flags;
 		br_write_unlock(&vfsmount_lock);
 	}
@@ -1992,7 +1927,7 @@ static int do_add_mount(struct mount *newmnt, struct path *path, int mnt_flags)
 	struct mount *parent;
 	int err;
 
-	mnt_flags &= ~MNT_INTERNAL_FLAGS;
+	mnt_flags &= ~(MNT_SHARED | MNT_WRITE_HOLD | MNT_INTERNAL);
 
 	mp = lock_mount(path);
 	if (IS_ERR(mp))
@@ -2056,7 +1991,7 @@ static int do_new_mount(struct path *path, const char *fstype, int flags,
 		 */
 		if (!(type->fs_flags & FS_USERNS_DEV_MOUNT)) {
 			flags |= MS_NODEV;
-			mnt_flags |= MNT_NODEV | MNT_LOCK_NODEV;
+			mnt_flags |= MNT_NODEV;
 		}
 	}
 
@@ -2373,14 +2308,6 @@ long do_mount(const char *dev_name, const char *dir_name,
 		mnt_flags &= ~(MNT_RELATIME | MNT_NOATIME);
 	if (flags & MS_RDONLY)
 		mnt_flags |= MNT_READONLY;
-
-	/* The default atime for remount is preservation */
-	if ((flags & MS_REMOUNT) &&
-	    ((flags & (MS_NOATIME | MS_NODIRATIME | MS_RELATIME |
-		       MS_STRICTATIME)) == 0)) {
-		mnt_flags &= ~MNT_ATIME_MASK;
-		mnt_flags |= path.mnt->mnt_flags & MNT_ATIME_MASK;
-	}
 
 	flags &= ~(MS_NOSUID | MS_NOEXEC | MS_NODEV | MS_ACTIVE | MS_BORN |
 		   MS_NOATIME | MS_NODIRATIME | MS_RELATIME| MS_KERNMOUNT |

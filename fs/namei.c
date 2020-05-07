@@ -34,7 +34,6 @@
 #include <linux/device_cgroup.h>
 #include <linux/fs_struct.h>
 #include <linux/posix_acl.h>
-#include <linux/hash.h>
 #include <asm/uaccess.h>
 
 #include "internal.h"
@@ -1664,7 +1663,8 @@ static inline int can_lookup(struct inode *inode)
 
 static inline unsigned int fold_hash(unsigned long hash)
 {
-	return hash_64(hash, 32);
+	hash += hash >> (8*sizeof(int));
+	return hash;
 }
 
 #else	/* 32-bit case */
@@ -2439,7 +2439,7 @@ static int handle_truncate(struct file *filp)
 	if (!error)
 		error = security_path_truncate(path);
 	if (!error) {
-		error = do_truncate2(path->mnt, path->dentry, 0,
+		error = do_truncate(path->dentry, 0,
 				    ATTR_MTIME|ATTR_CTIME|ATTR_OPEN,
 				    filp);
 	}
