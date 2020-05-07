@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # export ARCH=arm
-export CROSS_COMPILE=$HOME/bedrock/arm-eabi-4.7/bin/arm-eabi-
+export CROSS_COMPILE=$HOME/bedrock/arm-eabi-4.8/bin/arm-eabi-
 
-export PATH="$HOME/bedrock/arm-eabi-4.7/bin/:$PATH"
+export PATH="$HOME/bedrock/arm-eabi-4.8/bin/:$PATH"
 export ARCH=arm
 export SUBARCH=arm
 
