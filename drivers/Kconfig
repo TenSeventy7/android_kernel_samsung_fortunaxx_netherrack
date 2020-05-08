@@ -192,4 +192,6 @@ source "drivers/battery/Kconfig"
 
 source "drivers/firmware/Kconfig"
 
+source "drivers/prima/Kconfig"
+
 endmenu
