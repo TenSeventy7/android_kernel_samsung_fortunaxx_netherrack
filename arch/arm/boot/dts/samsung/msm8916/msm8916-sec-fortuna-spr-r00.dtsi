@@ -11,85 +11,79 @@
  */
 
 #include "msm8916.dtsi"
-#include "msm8916-pinctrl-sec-fortuna-r04.dtsi"
+#include "msm8916-pinctrl-sec-fortuna-spr-r00.dtsi"
+#include "msm8916-camera-sensor-r00.dtsi"
+#include "msm8916-camera-sensor-cdp-fortuna-tfn-r00.dtsi"
 #include "../../../../../../drivers/video/msm/mdss/samsung/HX8389C_GH9607501A/dsi_panel_HX8389C_GH9607501A_qhd_video.dtsi"
-#include "msm8916-camera.dtsi"
-#include "msm8916-camera-sensor-cdp-r02.dtsi"
-#include "msm8916-sec-fortuna-battery-r01.dtsi"
-
+#include "../../../../../../drivers/video/msm/mdss/samsung/S6D78A0_GH9607501A/dsi_panel_S6D78A0_GH9607501A_qhd_video.dtsi"
+#include "msm8916-sec-fortuna-spr-battery-r00.dtsi"
 / {
 	aliases {
 		serial0 = &blsp1_uart2;
-
-		/*i2c-gpio bus_id*/
-              //i2c7 = &i2c_7;
-                i2c8 = &i2c_8;
 		i2c9 = &i2c_9;
-		i2c10 = &i2c_10;
 		i2c11 = &i2c_11;
+		i2c12 = &i2c_12;
+		i2c21 = &i2c_21; /* I2C21 controller device - camera */
+		i2c22 = &i2c_22; /* I2C22 controller device - camera */
 	};
 };
 
 &soc {
-	samsung,vibrator {
-		pinctrl-names = "tlmm_motor_en_active","tlmm_motor_en_suspend";
-		pinctrl-0 = <&motor_en_active>;
-		pinctrl-1 = <&motor_en_suspend>;
-		compatible = "vibrator";
-		samsung,motor-en = <&msm_gpio 72 0x1>;
+	samsung,simslot {
+	compatible = "simslot";
+	samsung,sim-slot = <&msm_gpio 106 0x1>;
+	//low-is-dual; // If the value of sim-slot gpio is 'low' in 'dual sim' device, you must set this boolean property.
+	status = "ok";
+};
+
+samsung,vibrator {
+		compatible = "samsung_vib";
+		pinctrl-names = "tlmm_motor_active","tlmm_motor_suspend";
+		pinctrl-0 = <&motor_en_active &motor_pwm_active>;
+		pinctrl-1 = <&motor_en_suspend &motor_pwm_suspend>;
+		samsung,vib_en = <&msm_gpio 72 0x1>;
+		samsung,vib_pwm = <&msm_gpio 97 0x1>;
+		samsung,gp_clk = <0x01808000>;	// Adress of GP1 clock,by default GP2 is used
 		status = "ok";
 	};
 
-	i2c@78b9000 { /* BLSP1 QUP5 */
-	status = "ok";
-		bt532_ts_device@20 {
-			compatible = "zinitix,bt541_ts_device";
-			reg = <0x20>;
+	i2c@78ba000 { /* BLSP1 QUP6 */
+		status = "ok";
+		sec-nfc@27 {
+                        compatible = "sec-nfc";
+                        reg = <0x27>;
+                        interrupt-parent = <&msm_gpio>;
+                        interrupts = <21 0>;
+                        pinctrl-names = "nfc_active","nfc_suspend";
+                        pinctrl-0 = <&nfc_int_active &nfc_enable_active &nfc_firmware_active>;
+                        pinctrl-1 = <&nfc_int_suspend &nfc_enable_suspend &nfc_firmware_suspend>;
+                        sec-nfc,firm-gpio = <&msm_gpio 49 0x00>;
+                        sec-nfc,ven-gpio = <&msm_gpio 20 0x00>;
+                        sec-nfc,irq-gpio = <&msm_gpio 21 0x01>;
+                        nfc_ldo-supply = <&pm8916_l14>;
+                        clocks = <&clock_rpm clk_bb_clk2_pin>;
+                        clock-names = "nfc_clock";
+			qcom,clk-src="BBCLK2";
+                };
+		pn547@2B {
+			compatible = "pn547";
+			reg = <0x2B>;
 			interrupt-parent = <&msm_gpio>;
-			interrupts = <13 0>;
-			pinctrl-names = "tsp_en_gpio_active", "tsp_en_gpio_suspend";
-			pinctrl-0 = <&tsp_en_active &tsp_id_active &int_active>;
-			pinctrl-1 = <&tsp_en_suspend &tsp_id_suspend>;
-			vddo-supply = <&pm8916_l6>;
-			zinitix,vdd_en-gpio = <&msm_gpio 73 0x01>;
-			tsp_id-gpio =  <&msm_gpio 56 0x01>;
-			zinitix,irq-gpio = <&msm_gpio 13 0x00>;
-			zinitix,x_resolution = <540>;
-			zinitix,y_resolution = <960>;
-			zinitix,page_size = <128>;
-			zinitix,orientation = <0>;
-			zinitix,tsp_vdd_supply_type = <0>;
-			zinitix,pname = "SM-G5308W";
-		};
-		ist30xx_ts@50 {
-			compatible = "imagis,ist30xx-ts";
-			reg = <0x50>;
-			interrupt-parent = <&msm_gpio>;
-			interrupts = <13 0>;
-			pinctrl-names = "keyled_en_gpio_active", "keyled_en_gpio_suspend", "tsp_int_active", "tsp_en_gpio_active", "tsp_en_gpio_suspend", "tsp_id_gpio_active", "tsp_id_gpio_suspend";
-			pinctrl-0 = <&keyled_en_active>;
-			pinctrl-1 = <&keyled_en_suspend>;
-			pinctrl-2 = <&int_active>;
-			pinctrl-3 = <&tsp_en_active>;
-			pinctrl-4 = <&tsp_en_suspend>;
-			pinctrl-5 = <&tsp_id_active>;
-			pinctrl-6 = <&tsp_id_suspend>;
-			
-			vdd_en-gpio = <&msm_gpio 73 0x01>;
-			keyled_en-gpio = <&msm_gpio 60 0x01>;
-			tsp_id-gpio =  <&msm_gpio 56 0x01>;
-	//		vcc_i2c-supply = <&pm8916_l6>;
-			imagis,irq-gpio = <&msm_gpio 13 0x00>;
-			imagis,i2c-pull-up = <1>;
+			interrupts = <21 0>;
+			pinctrl-names = "nfc_active","nfc_suspend";
+			pinctrl-0 = <&nfc_int_active &nfc_enable_active &nfc_firmware_active>;
+			pinctrl-1 = <&nfc_int_suspend &nfc_enable_suspend &nfc_firmware_suspend>;
+			pn547,firm-gpio = <&msm_gpio 49 0x00>;
+			pn547,ven-gpio = <&msm_gpio 20 0x00>;
+			pn547,irq-gpio = <&msm_gpio 21 0x01>;
+			nfc_ldo-supply = <&pm8916_l14>;
+			clocks = <&clock_rpm clk_bb_clk2_pin>;
+			clock-names = "nfc_clock";
 		};
 	};
 
-	i2c_4: i2c@78b8000 { /* BLSP1 QUP4 */
-		status="disable";
-	};
-
-       i2c_10:i2c@10 {
-		cell-index = <10>;
+       i2c_11:i2c@11 {
+		cell-index = <11>;
 		compatible = "i2c-gpio";
 		i2c-gpio-scl = <&msm_gpio 15 0x00>;
 		i2c-gpio-sda = <&msm_gpio 14 0x00>;
@@ -101,11 +95,10 @@
 			compatible = "rt5033-fuelgauge,i2c";
 			reg = <0x35>;
 			interrupt-parent = <&msm_gpio>;
-			fuelgauge,irqf = "IRQF_TRIGGER_FALLING + IRQF_ONESHOT + IRQF_NO_SUSPEND";
-			fuelgauge,fuel_int = <&msm_gpio 121 0x1>;
 			pinctrl-names = "default";
 			pinctrl-0 = <&fg_i2c_active &fuel_int_active>;
-
+			fuelgauge,irqf = "IRQF_TRIGGER_FALLING + IRQF_ONESHOT + IRQF_NO_SUSPEND";
+			fuelgauge,fuel_int = <&msm_gpio 121 0x1>;
 			fuelgauge,capacity_max = <1000>;
 			fuelgauge,capacity_max_margin = <50>;
 			fuelgauge,capacity_min = <0>;
@@ -114,15 +107,11 @@
 		};
 	};
 
-	i2c_6: i2c@78ba000 { /* BLSP1 QUP6 */
-		status="disable";
-	};
-
-       i2c_11:i2c@11 {
-		cell-index = <11>;
+       i2c_12:i2c@12 {
+		cell-index = <12>;
 		compatible = "i2c-gpio";
-		i2c-gpio-scl = <&msm_gpio 23 0x00>;
-		i2c-gpio-sda = <&msm_gpio 22 0x00>;
+		i2c-gpio-scl = <&msm_gpio 1 0x00>;
+		i2c-gpio-sda = <&msm_gpio 0 0x00>;
 		i2c-gpio,delay-us = <2>;
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -131,9 +120,9 @@
 			compatible = "richtek,rt5033mfd";
 			reg = <0x34>;
 			interrupt-parent = <&msm_gpio>;
-			rt5033,irq-gpio = <&msm_gpio 62 0x00>;
 			pinctrl-names = "default";
 			pinctrl-0 = <&chg_i2c_active &charger_int_active>;
+			rt5033,irq-gpio = <&msm_gpio 62 0x00>;
 
 			rt5033_charger {
 				compatible = "richtek,rt5033-charger";
@@ -194,112 +183,30 @@
 		};
 	};
 
-	gen-vkeys {
-		compatible = "qcom,gen-vkeys";
-		label = "synaptics_rmi4_i2c";
-		qcom,disp-maxx = <1079>;
-		qcom,disp-maxy = <1919>;
-		qcom,panel-maxx = <1079>;
-		qcom,panel-maxy = <2084>;
-		qcom,key-codes = <158 139 172 217>;
-	};
-
-	sec_thermistor {
-		compatible = "sec,thermistor";
-		qcom,therm-vadc = <&pm8916_vadc>;
-	};
-
-	alps {
-			compatible = "alps-input";
-	};
-
-	i2c_8: i2c@8 {
-		cell-index = <8>;
-                compatible = "i2c-gpio";
-                i2c-gpio-scl = <&msm_gpio 1 0x00>;
-                i2c-gpio-sda = <&msm_gpio 0 0x00>;
-                #address-cells = <1>;
-                #size-cells = <0>;
-		i2c-gpio,delay-us = <2>;
-		pn547@2B {
-			compatible = "pn547";
-			reg = <0x2B>;
-			interrupt-parent = <&msm_gpio>;
-			interrupts = <21 0>;
-			pinctrl-names = "nfc_active","nfc_suspend";
-			pinctrl-0 = <&nfc_int_active &nfc_enable_active &nfc_firmware_active &nfc_i2c_active>;
-			pinctrl-1 = <&nfc_int_suspend &nfc_enable_suspend &nfc_firmware_suspend &nfc_i2c_suspend>;
-			pn547,firm-gpio = <&msm_gpio 49 0x00>;
-			pn547,ven-gpio = <&msm_gpio 20 0x00>;
-			pn547,irq-gpio = <&msm_gpio 21 0x01>;
-			nfc_ldo-supply = <&pm8916_l14>;
-			clocks = <&clock_rpm clk_bb_clk2_pin>;
-			clock-names = "nfc_clock";
-		};
+	i2c@78b5000 { /* BLSP1 QUP1 */
+		status = "disable";
 	};
 
 	i2c@78b6000 { /* BLSP1 QUP2 */
 		compatible = "qcom,i2c-msm-v2";
 		qcom,scl-gpio = <&msm_gpio 7 0>;
 		qcom,sda-gpio = <&msm_gpio 6 0>;
-		k2hh@1D {
-			compatible = "stm,k2hh";
-			reg = <0x1D>;
+		bma_acc@10 {
+			compatible = "bma2x2";
+			reg = <0x10>;
 			interrupt-parent = <&msm_gpio>;
 			interrupts = <115 0>;
-			stm,irq_gpio = <&msm_gpio 115 0x00>;
-			stm,reg_vdd = "8916_l17";
-			stm,reg_vio = "8916_l5";
-			stm,axis_map_x = <0>;
-			stm,axis_map_y = <1>;
-			stm,axis_map_z = <2>;
-			stm,axis_map2_x = <0>;
-			stm,axis_map2_y = <1>;
-			stm,axis_map2_z = <2>;
-			stm,negate_x = <1>;
-			stm,negate_y = <0>;
-			stm,negate_z = <0>;
-			stm,negate2_x = <0>;
-			stm,negate2_y = <0>;
-			stm,negate2_z = <1>;
-			stm,poll_interval = <100>;
-			stm,min_interval = <2>;
+			bma2x2,vdd-supply = <&pm8916_l5>;
+			bma2x2,vio-supply = <&pm8916_l5>;
+			bma2x2,gpio_int1 = <&msm_gpio 115 0x00>;
+			bma2x2,accel_place = <7>;
 		};
-		k303c_acc@1c {
-			compatible = "k303c_acc";
-			reg = <0x1c>;
-			interrupt-parent = <&msm_gpio>;
-			interrupts = <115 0>;
-			k303c_acc,vdd-supply = <&pm8916_l17>;
-			k303c_acc,vio-supply = <&pm8916_l5>;
-			k303c_acc,gpio_int1 = <&msm_gpio 115 0x00>;
-			k303c_acc,fs_range = <0x00>;
-			k303c_acc,axis_map_x = <1>;
-			k303c_acc,axis_map_y = <0>;
-			k303c_acc,axis_map_z = <2>;
-			k303c_acc,negate_x = <0>;
-			k303c_acc,negate_y = <1>;
-			k303c_acc,negate_z = <1>;
-			k303c_acc,poll_interval = <100>;
-			k303c_acc,min_interval = <2>;
-		};
-		k303c_mag@1e {
-			compatible = "k303c_mag";
-			reg = <0x1e>;
-			interrupt-parent = <&msm_gpio>;
-			interrupts = <69 0>;
-			k303c_mag,irq_gpio = <&msm_gpio 69 0x1>;
-			k303c_mag,vdd-supply = <&pm8916_l17>;
-			k303c_mag,vio-supply = <&pm8916_l5>;
-			k303c_mag,poll_interval = <100>;
-			k303c_mag,min_interval = <13>;
-			k303c_mag,fs_range = <0x60>;
-			k303c_mag,axis_map_x = <1>;
-			k303c_mag,axis_map_y = <0>;
-			k303c_mag,axis_map_z = <2>;
-			k303c_mag,negate_x = <0>;
-			k303c_mag,negate_y = <1>;
-			k303c_mag,negate_z = <1>;
+		bmm_mag@12 {
+			compatible = "bmm050";
+			reg = <0x12>;
+			bmm050,vdd-supply = <&pm8916_l5>;
+			bmm050,vio-supply = <&pm8916_l5>;
+			bmm050,magnetic_place = <7>;
 		};
 		gp2a-i2c@44{
 			compatible = "gp2a-i2c";
@@ -316,31 +223,55 @@
 		};
 	};
 
+	i2c@78b9000 { /* BLSP1 QUP5 */
+		status = "ok";
+		bt532_ts_device@20 {
+			compatible = "zinitix,bt541_ts_device";
+			reg = <0x20>;
+			interrupt-parent = <&msm_gpio>;
+			interrupts = <13 0>;
+			pinctrl-names = "tsp_en_gpio_active", "tsp_en_gpio_suspend";
+			pinctrl-0 = <&tsp_en_active &tsp_id_active &int_active>;
+			pinctrl-1 = <&tsp_en_suspend &tsp_id_suspend>;
+			vddo-supply = <&pm8916_l6>;
+			zinitix,vdd_en-gpio = <&msm_gpio 73 0x01>;
+			tsp_id-gpio =  <&msm_gpio 56 0x01>;
+			zinitix,irq-gpio = <&msm_gpio 13 0x00>;
+			zinitix,x_resolution = <540>;
+			zinitix,y_resolution = <960>;
+			zinitix,page_size = <128>;
+			zinitix,orientation = <0>;
+			zinitix,tsp_vdd_supply_type = <0>;
+			zinitix,pname = "SM-G5308W";
+		};
+	};
+
 	/* Over-riding model specific changes */
 	sound {
+		qcom,msm-ext-pa = "quaternary";
 		qcom,audio-routing =
 			"RX_BIAS", "MCLK",
 			"SPK_RX_BIAS", "MCLK",
 			"INT_LDO_H", "MCLK",
 			"MIC BIAS External", "Handset Mic",
-			"MIC BIAS External2", "Headset Mic",
 			"MIC BIAS External", "Secondary Mic",
 			"AMIC1", "MIC BIAS External",
-			"AMIC2", "MIC BIAS External2",
+			"AMIC2", "Headset Mic",
 			"AMIC3", "MIC BIAS External";
 		pinctrl-names = "cdc_lines_act",
-				"cdc_lines_sus";
+				"cdc_lines_sus",
+				"cdc_lines_quat_ext_act",
+				"cdc_lines_quat_ext_sus";
 		pinctrl-0 = <&cdc_pdm_lines_act>;
 		pinctrl-1 = <&cdc_pdm_lines_sus>;
+		pinctrl-2 = <&cdc_pdm_lines_act &ext_cdc_tlmm_lines_act>;
+		pinctrl-3 = <&cdc_pdm_lines_sus &ext_cdc_tlmm_lines_sus>;
 	};
 
-	samsung,gpio_settings{
-		compatible = "sec_gpio_sett";
-		pinctrl-names = "sec_gpio_active","sec_gpio_suspend";
-		pinctrl-0 = <&home_key_pin>;
-		pinctrl-1 = <>;
+	sec_thermistor {
+		compatible = "sec,thermistor";
+		qcom,therm-vadc = <&pm8916_vadc>;
 	};
-
 };
 
 &blsp1_uart2 {
@@ -354,7 +285,7 @@
 		compatible = "gpio-keys";
 		input-name = "gpio-keys";
 		pinctrl-names = "tlmm_gpio_key_active","tlmm_gpio_key_suspend";
-		pinctrl-0 = <&gpio_key_active>;
+		pinctrl-0 = <&gpio_key_active &home_key_pin>;
 		pinctrl-1 = <&gpio_key_suspend>;
 
 		home_key {
@@ -365,6 +296,7 @@
 			gpio-key,wakeup;
 			debounce-interval = <15>;
 		};
+
 		vol_up {
 			label = "volume_up";
 			gpios = <&msm_gpio 107 0x1>;
@@ -372,10 +304,6 @@
 			linux,code = <115>;
 			debounce-interval = <15>;
 		};
-	};
-
-	i2c_1: i2c@78b5000 { /* BLSP1 QUP1 */
-		status="disable";
 	};
 
 	i2c_9:i2c@9 { /*SM5502 GPIO-I2C*/
@@ -416,23 +344,28 @@
 		qcom,earjack-sendend-gpio = <&msm_gpio 111 0x0>;
 		qcom,earjack-read-vadc = <&pm8916_vadc>;
 
-		det-zones-list = <&det_zones 0 10000 10 0>,
-						 <&det_zones 611 10000 10 0>,
-						 <&det_zones 1811 10000 10 1>,
-						 <&det_zones 9999 10000 10 1>;
-		but-zones-list = <&but_zones 0 0 195>,
-						 <&but_zones 1 196 280>,
-						 <&but_zones 2 281 999>;
-		mpp-channel-scaling = <2 1 3>;
+		det-zones-list = <&det_zones 1 10000 10 0>,
+				 <&det_zones 975 10000 10 0>,
+				 <&det_zones 1810 10000 10 1>,
+				 <&det_zones 2800 10000 10 1>;
+		but-zones-list = <&but_zones 0 1 315>,
+				 <&but_zones 3 316 360>,
+				 <&but_zones 1 361 458>,
+				 <&but_zones 2 459 1200>;
+		mpp-channel-scaling = <2 1 1>;
 		pinctrl-names = "earjack_gpio_active","earjack_gpio_suspend";
 		pinctrl-0 = <&earjack_det_act &earjack_switch_act>;
 		pinctrl-1 = <&earjack_det_sus &earjack_switch_sus>;
 	};
 };
 
+&blsp1_uart1 {
+	status = "ok";
+};
+
 &usb_otg {
 	qcom,hsusb-otg-phy-init-seq =
-					<0x49 0x81 0x0b 0x82 0xffffffff>;
+					<0x19 0x81 0x0b 0x82 0xffffffff>;
 };
 
 &sdhc_1 {
@@ -544,12 +477,7 @@
 };
 
 &mdss_mdp {
-       qcom,mdss-pref-prim-intf = "dsi";
-};
-
-&dsi_himax_tft_qhd_video{
-      qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_gpio_swing";
-      qcom,lcd-pwm-bl-gpio = <&msm_gpio 50 0>;
+	qcom,mdss-pref-prim-intf = "dsi";
 };
 
 &pmx_lcd_esd_det {
@@ -558,27 +486,75 @@
 };
 
 &pmx_mdss {
-                 qcom,num-grp-pins = <2>;
-                 qcom,pins = <&gp 102>, <&gp 25>;
+	qcom,num-grp-pins = <2>;
+	qcom,pins = <&gp 102>, <&gp 25>;
 };
 
 &pmx_pwm_bl {
-                 qcom,num-grp-pins = <1>;
-                 qcom,pins = <&gp 50>;
+	qcom,num-grp-pins = <1>;
+	qcom,pins = <&gp 50>;
 };
 
 &pmx_bl_ctrl {
-                 qcom,num-grp-pins = <1>;
-                 qcom,pins = <&gp 98>;
+	qcom,num-grp-pins = <1>;
+	qcom,pins = <&gp 98>;
+};
+
+&dsi_himax_tft_qhd_video{
+	samsung,panel-backlight-tft-gpio1 = <&msm_gpio 50 0>;
+	samsung,panel-backlight-tft-gpio2 = <&msm_gpio 98 0>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_ss_pwm";
+	/*
+	* ************************************************************************************************************************
+	* Scaled level to index mappings
+	* ************************************************************************************************************************
+	*/
+	samsung,scaled_level_map_table_revA = <
+	/* <idx>	    <from>       <till>     <scaled_level> */
+		0		0		0		0
+		1		1		7		32
+		2		8		13		31
+		3		14		19		30
+		4		20		25		29
+		5		26		31		28
+		6		32		37		27
+		7		38		43		26
+		8		44		49		25
+		9		50		56		24
+		10		57		64		23
+		11		65		72		22
+		12		73		80		21
+		13		81		88		20
+		14		89		96		19
+		15		97		105		18
+		16		106		114		17
+		17		115		123		16
+		18		124		133		15
+		19		134		143		14
+		20		144		153		13
+		21		154		163		12
+		22		164		173		11
+		23		174		183		10
+		24		184		193		9
+		25		194		203		8
+		26		204		213		7
+		27		214		223		6
+		28		224		233		5
+		29		234		243		4
+		30		244		255		3
+		>;
+};
+
+&dsi_sdc_tft_qhd_video{
+	samsung,panel-backlight-tft-gpio1 = <&msm_gpio 50 0>;
+	samsung,panel-backlight-tft-gpio2 = <&msm_gpio 98 0>;
 };
 
 &mdss_dsi0 {
-	qcom,dsi-pref-prim-pan = <&dsi_himax_tft_qhd_video>;
 	pinctrl-names = "mdss_default", "mdss_sleep";
-	pinctrl-0 = <&mdss_dsi_active &lcd_esd_det_active &pmx_pwm_bl_active>;
+	pinctrl-0 = <&mdss_dsi_active &lcd_esd_det_active &pmx_pwm_bl_active &pmx_bl_ctrl_active>;
 	pinctrl-1 = <&mdss_dsi_suspend &lcd_esd_det_suspend &pmx_pwm_bl_suspend &pmx_bl_ctrl_suspend>;
 	qcom,platform-reset-gpio = <&msm_gpio 25 0>;
-	qcom,platform-bklight-en-gpio = <&msm_gpio 98 0>;
 	qcom,platform-enable-gpio = <&msm_gpio 102 0>;
 };
 
