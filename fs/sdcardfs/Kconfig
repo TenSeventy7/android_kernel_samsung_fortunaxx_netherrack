@@ -16,6 +16,20 @@ config SDCARD_FS_CI_SEARCH
 	depends on SDCARD_FS
 	default y
 
+config SDCARD_FS_SEC_API_L
+	bool "sdcardfs for android api 22"
+	depends on SDCARD_FS
+	default n
+	help
+	  Sdcardfs2 driver for API 22 below
+
+config SDCARD_FS_SEC_API_M
+	bool "sdcardfs for android api 23"
+	depends on SDCARD_FS
+	default n
+	help
+	  Sdcardfs3 driver for API 23 and up
+
 config SDCARD_FS_XATTR
 	bool "Sdcardfs extended attribute"
 	default y if CONFIG_SDCARD_FS_SEC_API_M=y
