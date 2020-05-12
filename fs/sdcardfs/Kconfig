@@ -18,7 +18,8 @@ config SDCARD_FS_CI_SEARCH
 
 config SDCARD_FS_XATTR
 	bool "Sdcardfs extended attribute"
-	default y
+	default y if CONFIG_SDCARD_FS_SEC_API_M=y
+	default n if CONFIG_SDCARD_FS_SEC_API_L=y
 	depends on SDCARD_FS
 	help
 	  Modification of sdcard file system for xattr
