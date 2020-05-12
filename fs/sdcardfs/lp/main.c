@@ -23,7 +23,7 @@
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/parser.h>
-#include "../internal.h"
+#include "../../internal.h"
 
 enum {
 	Opt_uid, 
