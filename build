@@ -54,6 +54,9 @@ exit_script() {
 
 download_toolchain() {
 	git clone https://bitbucket.org/UBERTC/arm-eabi-4.8.git ${TOOLCHAIN_EXT}
+	
+	# re-verify toolchain so new toolchain dir gets applied
+	verify_toolchain
 }
 
 verify_toolchain() {
