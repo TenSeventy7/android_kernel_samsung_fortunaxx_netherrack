@@ -581,6 +581,16 @@ int main(int ac, char **av)
 				"***\n"), defconfig_file);
 			exit(1);
 		}
+                name = getenv("KCONFIG_API_VARIANT");
+                printf("KCONFIG_API_VARIANT(%s)\n", name);
+                if (name) {
+                        if (conf_read_simple(name, S_DEF_USER, false)) {
+                                printf(_("***\n"
+                                        "*** Can't find API configuration \"%s\"!\n"
+                                        "***\n"), name);
+                                exit(1);
+                        }
+                }
                 name = getenv("KCONFIG_VARIANT");
                 printf("KCONFIG_VARIANT(%s)\n", name);
                 if (name) {
