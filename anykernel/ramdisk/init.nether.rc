@@ -1,0 +1,22 @@
+# Copyright (C) 2012 The Android Open Source Project
+# Portions by CaelestisZ - 2020
+#
+
+service sec-init /init.nether.selinux.sh
+    user root
+    seclabel u:r:init:s0
+    oneshot
+    disabled
+    
+service init-daemon /init.nether.initd.sh
+    class late_start
+    user root
+    seclabel u:r:init:s0
+    oneshot
+    disabled
+
+on boot
+    start sec-init
+
+on property:sys.boot_completed=1
+    start init-daemon
