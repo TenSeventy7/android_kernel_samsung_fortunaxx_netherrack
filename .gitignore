@@ -48,6 +48,14 @@ modules.builtin
 /output
 /out
 
+/anykernel/zImage
+/anykernel/Image.gz-dtb
+
+
+!.supported-devices
+!anykernel/.*
+!tools/ak/.*
+
 #
 # Debian directory (make deb-pkg)
 #
