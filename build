@@ -175,6 +175,8 @@ define_variant() {
 
 	api_variant_check
 
+	FILE_OUTPUT=Netherrack_${API_VERSION}_${DEVICE_BUILD}_${BUILDDATE}.zip
+
 	make_output
 	make -C $(pwd) O=${DEIVCE_OUTPUT_DIR} API_DEFCONFIG=$API_DEFCONFIG VARIANT_DEFCONFIG=$VARIANT_DEFCONFIG msm8916_sec_defconfig SELINUX_DEFCONFIG=selinux_defconfig
 
