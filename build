@@ -188,6 +188,9 @@ build_dtb() {
 
 build_kernel() {
 	make -C $(pwd) O=${DEIVCE_OUTPUT_DIR}
+	cp `find ./${DEIVCE_OUTPUT_DIR} -iname *.ko` $(pwd)/anykernel/modules/system/lib/modules -rf
+	mkdir $(pwd)/anykernel/modules/system/lib/modules/pronto
+	cp $(pwd)/anykernel/modules/system/lib/modules/wlan.ko $(pwd)/anykernel/modules/system/lib/modules/pronto/pronto_wlan.ko -f
 }
 
 ak_compose_manifest() {
