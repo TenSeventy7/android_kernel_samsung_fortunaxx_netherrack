@@ -183,7 +183,7 @@ define_variant() {
 }
 
 build_dtb() {
-	$DTBTOOL -o ${DEIVCE_OUTPUT_DIR}/arch/arm/boot/dt.img -s 2048 -p ./${DEIVCE_OUTPUT_DIR}/scripts/dtc/ ./${DEIVCE_OUTPUT_DIR}/arch/arm/boot/dts/
+	./tools/dtbTool -o ${DEIVCE_OUTPUT_DIR}/arch/arm/boot/dt.img -s 2048 -p ${DEIVCE_OUTPUT_DIR}/scripts/dtc/ ${DEIVCE_OUTPUT_DIR}/arch/arm/boot/dts/
 }
 
 build_kernel() {
