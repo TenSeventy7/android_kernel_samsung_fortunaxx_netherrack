@@ -50,7 +50,7 @@ modules.builtin
 
 /anykernel/zImage
 /anykernel/Image.gz-dtb
-
+/anykernel/device.netherrack.sh
 
 !.supported-devices
 !anykernel/.*
