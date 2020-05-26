@@ -24,3 +24,7 @@
 	qcom,board-id = <0xCE08FF01 0>;
         /*parm1)[31:24]platform_id [23:16]qc_hw_id [15:8]national code [7:0] operator, param2)SEC hw-rev*/
 };
+
+&secure_mem {
+	reg = <0 0 0 0x6D00000>;
+};

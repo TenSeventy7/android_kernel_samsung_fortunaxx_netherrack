@@ -18,6 +18,7 @@
 #include "msm8916-sec-j5-battery-r00.dtsi"
 #include "../../../../../../drivers/video/msm/mdss/samsung/S6D7AA0X62_BV050HDM/dsi_panel_S6D7AA0X62_BV050HDM_hd_5_0_video.dtsi"
 #include "../../../../../../drivers/video/msm/mdss/samsung/ILI6236S_CPT50/dsi_panel_ILI6236S_CPT50_hd_video.dtsi"
+#include "../../../../../../drivers/video/msm/mdss/samsung/ILI9881C_SKI499017/dsi_panel_ILI9881C_SKI499017_hd_video.dtsi"
 / {
 	aliases {
 		serial0 = &blsp1_uart2;
@@ -36,7 +37,7 @@
 	samsung,simslot {
 		compatible = "simslot";
 		samsung,sim-slot = <&msm_gpio 72 0x1>;
-		//low-is-dual; // If the value of sim-slot gpio is 'low' in 'dual sim' device, you must set this boolean property.
+		low-is-dual; // If the value of sim-slot gpio is 'low' in 'dual sim' device, you must set this boolean property.
 		status = "ok";
 	};
 
@@ -202,8 +203,8 @@
 			sm5703_fled {
 				compatible = "siliconmitus,sm5703-fled";
 				enable = <1 1>;
-				flash_current = <1100>;
-				movie_current = <200>;
+				flash_current = <1200>;
+				movie_current = <170>;
 				sm5703,led1-gpio = <&msm_gpio 36 0x00>;
 				sm5703,led2-gpio = <&msm_gpio 34 0x00>;
 				pinctrl-names = "fled_default","fled_sleep";
@@ -544,6 +545,9 @@
 		ss_dsi_panel_ILI6236S_CPT50_HD {
 			samsung,panel-extra-power-gpio1 = <&msm_gpio 16 0>;
 	};
+		ss_dsi_panel_ILI9881C_SKI499017_HD {
+			samsung,panel-extra-power-gpio1 = <&msm_gpio 16 0>;
+	};
 };
 
 &pmx_lcd_esd_det {
@@ -649,8 +653,8 @@
 				];
 				backlight-ic-tuning-outdoor = [
 					09	01
-					04	01
-					05	B8
+					04	07
+					05	D6
 				];
 				backlight-ic-tuning-normal = [
 					04	05

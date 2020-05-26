@@ -17,7 +17,7 @@
 #include "msm8916-camera-sensor-cdp-j5-r00.dtsi"
 #include "msm8916-sec-j5-battery-r00.dtsi"
 #include "../../../../../../drivers/video/msm/mdss/samsung/S6D7AA0X62_BV050HDM/dsi_panel_S6D7AA0X62_BV050HDM_hd_5_0_video.dtsi"
-#include "../../../../../../drivers/video/msm/mdss/samsung/S6E8AA5X01_AMS497HY01/dsi_panel_S6E8AA5X01_AMS497HY01_hd_octa_video.dtsi"
+#include "../../../../../../drivers/video/msm/mdss/samsung/S6E8AA5X01_AMS497HY01_J5LTE/dsi_panel_S6E8AA5X01_AMS497HY01_hd_octa_video.dtsi"
 / {
 	aliases {
 		serial0 = &blsp1_uart2;
@@ -35,7 +35,7 @@
 	samsung,simslot {
 		compatible = "simslot";
 		samsung,sim-slot = <&msm_gpio 72 0x1>;
-		//low-is-dual; // If the value of sim-slot gpio is 'low' in 'dual sim' device, you must set this boolean property.
+		low-is-dual; // If the value of sim-slot gpio is 'low' in 'dual sim' device, you must set this boolean property.
 		status = "ok";
 	};
 
@@ -69,6 +69,7 @@
 			imagis,ic-version = "ist3038c";
 			imagis,project-name = "j5_octa";
 			imagis,tkey = <1>;
+			imagis,octa-hw = <1>;
 		};
 	};
 
@@ -96,6 +97,7 @@
                         coreriver,tkey-keycodes = <254 158>;
                         coreriver,i2c-pull-up = <1>;
                         coreriver,gpio_seperated = <1>;
+			coreriver,fw-name = "tc360_j5";
                         coreriver,firm-up;
                 };
         };
@@ -231,8 +233,8 @@
 			sm5703_fled {
 				compatible = "siliconmitus,sm5703-fled";
 				enable = <1 1>;
-				flash_current = <1000>;
-				movie_current = <200>;
+				flash_current = <1200>;
+				movie_current = <170>;
 				sm5703,led1-gpio = <&msm_gpio 36 0x00>;
 				sm5703,led2-gpio = <&msm_gpio 34 0x00>;
 				pinctrl-names = "fled_default","fled_sleep";
@@ -304,6 +306,7 @@
 
 	/* Over-riding model specific changes */
 	sound {
+		qcom,msm-micbias1-ext-cap;
 		qcom,audio-routing =
 			"RX_BIAS", "MCLK",
 			"SPK_RX_BIAS", "MCLK",
@@ -366,7 +369,7 @@
 		interrupts = <52 0>;
 		hall,gpio_flip_cover = <&msm_gpio 52 0>;
 		hall_vdd-supply = <&pm8916_l5>;
-		pinctrl-names = "flipcover_active","flipcover_suspend";
+		pinctrl-names = "pmx_hall_ic_pin","flipcover_suspend";
 		pinctrl-0 = <&hall_int_active>;
 		pinctrl-1 = <&hall_int_suspend>;
 	};
@@ -418,13 +421,13 @@
 		qcom,earjack-read-vadc = <&pm8916_vadc>;
 
 		det-zones-list = <&det_zones 0 10000 10 0>,
-						 <&det_zones 978 10000 10 0>,
-						 <&det_zones 979 10000 10 1>,
+						 <&det_zones 977 10000 10 0>,
+						 <&det_zones 978 10000 10 1>,
 						 <&det_zones 9999 10000 10 1>;
-		but-zones-list = <&but_zones 0 0 306>,
-						<&but_zones 3 307 353>,	
-						 <&but_zones 1 354 472>,
-						 <&but_zones 2 473 999>;
+		but-zones-list = <&but_zones 0 0 298>,
+						<&but_zones 3 299 362>,	
+						 <&but_zones 1 363 480>,
+						 <&but_zones 2 481 9999>;
 		mpp-channel-scaling = <2 1 1>;
 		pinctrl-names = "earjack_gpio_active","earjack_gpio_suspend";
 		pinctrl-0 = <&earjack_det_act &earjack_switch_act>;
